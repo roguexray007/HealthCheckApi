@@ -10,5 +10,11 @@
         "crawlTimeOut": 20,
         "frequency": 9,
         "failureThreshold": 25
-    } 
+    } ,
+    {
+        "name": "www.google.com",
+        "crawlTimeOut": 15,
+        "frequency": 10,
+        "failureThreshold": 25
+        }  
 ]  
