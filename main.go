@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	// "github.com/gin-gonic/gin"
 	"fmt"
 	"github.com/jinzhu/gorm"
@@ -15,28 +17,50 @@ const (
 	dbPASSWORD = "ks"
 )
 
-// type urlRecord struct {
-// 	gorm.Model
-// 	Name             string `json:"name"`
-// 	CrawlTimeOut     int    `json:"crawlTimeOut`
-// 	Frequency        int    `json:"frequency`
-// 	FailureThreshold int    `json:"failureThreshold`
-// 	Status           int    `json:"status"`
-// }
-
-func dbInit() {
-	var err error
-	db, err = gorm.Open("mysql", dbUSER+":"+dbPASSWORD+"@/"+dbNAME+"?charset=utf8&parseTime=True&loc=Local")
-	if err != nil {
-		panic("failed to connect to database")
-	} else {
-		fmt.Println("successfully connected")
-	}
+type urlRecord struct {
+	gorm.Model
+	urlInfo
 }
 
-func main() {
-	dbInit()
+type urlInfo struct {
+	Name             string `json:"name"`
+	CrawlTimeOut     int    `json:"crawlTimeOut"`
+	Frequency        int    `json:"frequency"`
+	FailureThreshold int    `json:"failureThreshold"`
+	Status           int    `json:"status"`
+}
 
+//------------------------------ dbInit funtion --------------------
+
+// func dbInit() {
+// 	var err error
+// 	db, err = gorm.Open("mysql", dbUSER+":"+dbPASSWORD+"@/"+dbNAME+"?charset=utf8&parseTime=True&loc=Local")
+// 	if err != nil {
+// 		panic("failed to connect to database")
+// 	} else {
+// 		fmt.Println("successfully connected")
+// 	}
+// }
+
+func main() {
+	//--------------------- database initialisation ----------------
+	// dbInit()
+
+	//--------------------- unmarshalling json file ----------------
+
+	file, err := ioutil.ReadFile("data.json")
+	if err != nil {
+		panic("failed to read file")
+	}
+	fmt.Println(string(file))
+	var data []urlInfo
+	err = json.Unmarshal([]byte(file), &data)
+	if err != nil {
+		panic("failed to unmarshall file")
+	}
+	fmt.Printf("%#v", data)
+
+	// ------------- setting up routes using gin -------------------
 	// router := gin.Default()
 
 	// app := router.Group("api/healthcheck")
