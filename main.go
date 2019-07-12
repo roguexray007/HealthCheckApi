@@ -1,16 +1,16 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
-	"io/ioutil"
-	"time"
-	// "github.com/gin-gonic/gin"
 	"fmt"
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/mysql"
+	"github.com/gin-gonic/gin"
+	_ "github.com/go-sql-driver/mysql"
+	"io/ioutil"
+	"net/http"
+	// "net/http/httptest"
+	"time"
 )
-
-var db *gorm.DB
 
 const (
 	dbNAME     = "healthChecker"
@@ -18,35 +18,84 @@ const (
 	dbPASSWORD = "ks"
 )
 
+var db *sql.DB
+var router *gin.Engine
+
+type healthCheckLog struct {
+	ID        uint
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	URLID     uint
+}
+
 type urlRecord struct {
-	ID               uint `gorm:"primary_key"`
+	ID               uint
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-	DeletedAt        *time.Time `sql:"index"`
-	Name             string     `json:"name"`
-	CrawlTimeOut     int        `json:"crawlTimeOut"`
-	Frequency        int        `json:"frequency"`
-	FailureThreshold int        `json:"failureThreshold"`
-	Status           int        `json:"status"`
+	Name             string `json:"name"`
+	CrawlTimeOut     int    `json:"crawlTimeOut"`
+	Frequency        int    `json:"frequency"`
+	FailureThreshold int    `json:"failureThreshold"`
+	Status           int    `json:"status"`
 }
 
 //------------------------------ dbInit funtion --------------------
 
 func dbInit() {
 	var err error
-	db, err = gorm.Open("mysql", dbUSER+":"+dbPASSWORD+"@/"+dbNAME+"?charset=utf8&parseTime=True&loc=Local")
+	db, err = sql.Open("mysql", dbUSER+":"+dbPASSWORD+"@/"+dbNAME+"?charset=utf8&parseTime=True&loc=Local")
 	if err != nil {
 		panic("failed to connect to database")
 	} else {
 		fmt.Println("successfully connected")
 	}
-	db.AutoMigrate(&urlRecord{})
+
+	stmt, err := db.Prepare(`CREATE Table IF NOT EXISTS urlRecords(
+		id int UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+		url varchar(255) UNIQUE NOT NULL,
+		crawlTimeOut int NOT NULL,
+		frequency int NOT NULL,
+		failureThreshold int NOT NULL,
+		status int DEFAULT 500,
+		created_at DATETIME,
+		updated_at DATETIME
+		);`)
+
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	_, err = stmt.Exec()
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("Table created successfully..")
+	}
+
+	stmt, err = db.Prepare(`CREATE Table IF NOT EXISTS healthCheckLogs(
+		ID int UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+		url_id int UNSIGNED NOT NULL,
+		trial_number int,
+		response int,
+		create_at DATETIME,
+		FOREIGN KEY fk_url_record(url_id)
+		REFERENCES urlRecords(id)
+		);`)
+
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	_, err = stmt.Exec()
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("Table created successfully..")
+	}
+
 }
 
 func main() {
 	//--------------------- database initialisation ----------------
 	var data []urlRecord
-	var tempRec urlRecord
 	dbInit()
 
 	//--------------------- unmarshalling json file ----------------
@@ -55,7 +104,7 @@ func main() {
 	if err != nil {
 		panic("failed to read file")
 	}
-	fmt.Println(string(file))
+	// fmt.Println(string(file))
 	err = json.Unmarshal([]byte(file), &data)
 	if err != nil {
 		panic("failed to unmarshall file")
@@ -63,24 +112,78 @@ func main() {
 	// fmt.Printf("%#v", data)
 
 	//----------------- Adding unmarshall data in database ---------
+
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 	for _, v := range data {
-		db.Where("name = ? ", v.Name).First(&tempRec)
-		if tempRec == (urlRecord{}) {
-			db.Create(&v)
+		_, err := db.Exec(`REPLACE INTO urlRecords(
+			url ,
+			crawlTimeOut ,
+			frequency ,
+			failureThreshold,
+			created_at,
+			updated_at)
+			VALUES (?,?,?,?,?,?)
+			;`,
+			v.Name,
+			v.CrawlTimeOut,
+			v.Frequency,
+			v.FailureThreshold,
+			time.Now(),
+			time.Now())
+		if err != nil {
+			fmt.Println(err.Error())
+		} else {
+			fmt.Println("inserted record successfully..")
 		}
 	}
 
 	// ------------- setting up routes using gin -------------------
-	// router := gin.Default()
+	router = gin.Default()
 
-	// app := router.Group("api/healthcheck")
-	// {
-	// 	app.GET("/", func(c *gin.Context) {
-	// 		c.JSON(200, gin.H{
-	// 			"message": "hello world",
-	// 		})
-	// 	})
-	// }
+	app := router.Group("api/healthcheck")
+	{
+		app.GET("/check", checkURLHealth)
 
-	// router.Run()
+	}
+
+	router.Run(":80")
+}
+
+type url struct {
+	Name string `form:"url"`
+}
+
+func checkURLHealth(c *gin.Context) {
+	// id := c.Query("id")
+	// pk := c.Param("pk")
+	// name := c.DefaultQuery("name", "john")
+	// // fmt.Printf("%v ID %v : corresponds to %v \n", pk, id, name)
+	// // c.String(http.StatusOK, "%v ID %v : corresponds to %v \n", pk, id, name)
+	// c.JSON(http.StatusOK, gin.H{
+	// 	"pk":   pk,
+	// 	"name": name,
+	// 	"id":   id,
+	// })
+	var obj url
+	if c.ShouldBindQuery(&obj) == nil {
+		fmt.Println("====== Only Bind By Query String ======")
+		fmt.Println(obj)
+		resp, err := http.Get(obj.Name)
+		if err != nil {
+			fmt.Println("error is ", err)
+			c.JSON(http.StatusNotFound, gin.H{
+				"status": http.StatusNotFound,
+				"error":  err,
+			})
+			return
+		}
+		defer resp.Body.Close()
+		c.JSON(http.StatusOK, gin.H{
+			"status": http.StatusOK,
+			"error":  err,
+		})
+	}
+
 }
