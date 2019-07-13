@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"io/ioutil"
+	// "sync"
 	// "net/http"
 	// "net/http/httptest"
 	"time"
@@ -40,6 +41,7 @@ type urlRecord struct {
 }
 
 type transformedURLRecord struct {
+	ID               uint   `json:"-"`
 	URL              string `json:"url"`
 	CrawlTimeOut     int    `json:"crawlTimeOut"`
 	Frequency        int    `json:"frequency"`
@@ -61,9 +63,9 @@ func dbInit() {
 	stmt, err := db.Prepare(`CREATE Table IF NOT EXISTS urlRecords(
 		id int UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
 		url varchar(255) UNIQUE NOT NULL,
-		crawlTimeOut int NOT NULL,
-		frequency int NOT NULL,
-		failureThreshold int NOT NULL,
+		crawlTimeOut int UNIQUE NOT NULL,
+		frequency int UNIQUE NOT NULL,
+		failureThreshold int UNIQUE NOT NULL,
 		status int DEFAULT 500,
 		created_at DATETIME,
 		updated_at DATETIME
@@ -152,7 +154,7 @@ func main() {
 
 	app := router.Group("api/healthcheck")
 	{
-		app.GET("/check", checkURLHealth)
+		app.GET("/check", checkHealth)
 
 	}
 
@@ -196,13 +198,16 @@ type url struct {
 
 // }
 
-func checkURLHealth(c *gin.Context) {
+func checkHealth(c *gin.Context) {
 	var urlinfo transformedURLRecord
+	// var wg sync.WaitGroup
 	results, err := db.Query(`SELECT 
+							id,
 							url,
 							crawlTimeOut,
 							frequency ,
-							failureThreshold
+							failureThreshold,
+							status
 							FROM urlRecords`)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -212,16 +217,20 @@ func checkURLHealth(c *gin.Context) {
 	defer results.Close()
 
 	for results.Next() {
-		err = results.Scan(&urlinfo.URL, &urlinfo.CrawlTimeOut, &urlinfo.Frequency, &urlinfo.FailureThreshold)
+		err = results.Scan(&urlinfo.ID, &urlinfo.URL, &urlinfo.CrawlTimeOut, &urlinfo.Frequency,
+			&urlinfo.FailureThreshold, &urlinfo.Status)
 		if err != nil {
 			fmt.Println("Error while scanning row")
 		} else {
-			b, err := json.MarshalIndent(urlinfo, "", "   ")
+			urlinfoJSON, err := json.MarshalIndent(urlinfo, "", "   ")
 			if err != nil {
 				fmt.Printf("Error: %s", err)
 				return
 			}
-			fmt.Printf("%s\n", b)
+			fmt.Printf("%s\n", urlinfoJSON)
+			fmt.Println(urlinfo)
+			// wg.Add(1)
+			// go
 		}
 	}
 	err = results.Err()
@@ -230,3 +239,5 @@ func checkURLHealth(c *gin.Context) {
 	}
 
 }
+
+// func checkURLHealth(urlinfo *)
