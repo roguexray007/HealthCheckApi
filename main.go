@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"io/ioutil"
-	"net/http"
+	// "net/http"
 	// "net/http/httptest"
 	"time"
 )
@@ -32,7 +32,15 @@ type urlRecord struct {
 	ID               uint
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-	Name             string `json:"name"`
+	URL              string `json:"url"`
+	CrawlTimeOut     int    `json:"crawlTimeOut"`
+	Frequency        int    `json:"frequency"`
+	FailureThreshold int    `json:"failureThreshold"`
+	Status           int    `json:"status"`
+}
+
+type transformedURLRecord struct {
+	URL              string `json:"url"`
 	CrawlTimeOut     int    `json:"crawlTimeOut"`
 	Frequency        int    `json:"frequency"`
 	FailureThreshold int    `json:"failureThreshold"`
@@ -126,7 +134,7 @@ func main() {
 			updated_at)
 			VALUES (?,?,?,?,?,?)
 			;`,
-			v.Name,
+			v.URL,
 			v.CrawlTimeOut,
 			v.Frequency,
 			v.FailureThreshold,
@@ -155,35 +163,70 @@ type url struct {
 	Name string `form:"url"`
 }
 
+// func checkURLHealth(c *gin.Context) {
+// 	// id := c.Query("id")
+// 	// pk := c.Param("pk")
+// 	// name := c.DefaultQuery("name", "john")
+// 	// // fmt.Printf("%v ID %v : corresponds to %v \n", pk, id, name)
+// 	// // c.String(http.StatusOK, "%v ID %v : corresponds to %v \n", pk, id, name)
+// 	// c.JSON(http.StatusOK, gin.H{
+// 	// 	"pk":   pk,
+// 	// 	"name": name,
+// 	// 	"id":   id,
+// 	// })
+// 	var obj url
+// 	if c.ShouldBindQuery(&obj) == nil {
+// 		fmt.Println("====== Only Bind By Query String ======")
+// 		fmt.Println(obj)
+// 		resp, err := http.Get(obj.Name)
+// 		if err != nil {
+// 			fmt.Println("error is ", err)
+// 			c.JSON(http.StatusNotFound, gin.H{
+// 				"status": http.StatusNotFound,
+// 				"error":  err,
+// 			})
+// 			return
+// 		}
+// 		defer resp.Body.Close()
+// 		c.JSON(http.StatusOK, gin.H{
+// 			"status": http.StatusOK,
+// 			"error":  err,
+// 		})
+// 	}
+
+// }
+
 func checkURLHealth(c *gin.Context) {
-	// id := c.Query("id")
-	// pk := c.Param("pk")
-	// name := c.DefaultQuery("name", "john")
-	// // fmt.Printf("%v ID %v : corresponds to %v \n", pk, id, name)
-	// // c.String(http.StatusOK, "%v ID %v : corresponds to %v \n", pk, id, name)
-	// c.JSON(http.StatusOK, gin.H{
-	// 	"pk":   pk,
-	// 	"name": name,
-	// 	"id":   id,
-	// })
-	var obj url
-	if c.ShouldBindQuery(&obj) == nil {
-		fmt.Println("====== Only Bind By Query String ======")
-		fmt.Println(obj)
-		resp, err := http.Get(obj.Name)
+	var urlinfo transformedURLRecord
+	results, err := db.Query(`SELECT 
+							url,
+							crawlTimeOut,
+							frequency ,
+							failureThreshold
+							FROM urlRecords`)
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("results fetched successfully")
+	}
+	defer results.Close()
+
+	for results.Next() {
+		err = results.Scan(&urlinfo.URL, &urlinfo.CrawlTimeOut, &urlinfo.Frequency, &urlinfo.FailureThreshold)
 		if err != nil {
-			fmt.Println("error is ", err)
-			c.JSON(http.StatusNotFound, gin.H{
-				"status": http.StatusNotFound,
-				"error":  err,
-			})
-			return
+			fmt.Println("Error while scanning row")
+		} else {
+			b, err := json.MarshalIndent(urlinfo, "", "   ")
+			if err != nil {
+				fmt.Printf("Error: %s", err)
+				return
+			}
+			fmt.Printf("%s\n", b)
 		}
-		defer resp.Body.Close()
-		c.JSON(http.StatusOK, gin.H{
-			"status": http.StatusOK,
-			"error":  err,
-		})
+	}
+	err = results.Err()
+	if err != nil {
+		fmt.Println("Error after ending iteration on result set")
 	}
 
 }
