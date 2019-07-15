@@ -110,7 +110,7 @@ func main() {
 	dbInit()
 
 	sched := cron.New()
-	sched.AddFunc("*/20 * * * *", checkHealth)
+	sched.AddFunc("*/2 * * * *", checkHealth)
 	sched.Start()
 
 	// ------------- setting up routes using gin -------------------
@@ -274,6 +274,7 @@ func checkHealth() {
 		fmt.Println("Error after ending iteration on result set")
 	}
 	wg.Wait()
+	fmt.Printf("--------------------- HEALTH CHECK COMPLETED ---------------------------\n")
 
 }
 

@@ -1,26 +1,20 @@
 [
     {
     "url": "http://www.google.com",
-    "crawlTimeOut": 90,
-    "frequency": 10,
+    "crawlTimeOut": 200,
+    "frequency": 1,
     "failureThreshold": 2
     }  ,
     {
-        "url": "http://bangalore.craigslist.org/",
-        "crawlTimeOut": 210,
-        "frequency": 9,
-        "failureThreshold": 3
-    },
-    {
         "url": "http://www.youtube.com",
-        "crawlTimeOut": 150,
-        "frequency": 6,
-        "failureThreshold": 4
+        "crawlTimeOut": 600,
+        "frequency": 1,
+        "failureThreshold": 2
     },
     {
         "url": "http://www.twitch.com",
-        "crawlTimeOut": 150,
-        "frequency": 6,
-        "failureThreshold": 4
+        "crawlTimeOut": 800,
+        "frequency": 1,
+        "failureThreshold": 2
     }    
 ]  
