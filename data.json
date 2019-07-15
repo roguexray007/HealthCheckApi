@@ -1,20 +1,14 @@
 [
     {
-    "url": "www.google.com",
-    "crawlTimeOut": 15,
+    "url": "http://www.google.com",
+    "crawlTimeOut": 150,
     "frequency": 10,
-    "failureThreshold": 25
+    "failureThreshold": 2
     }  ,
     {
-        "url": "craigslist.test",
-        "crawlTimeOut": 20,
+        "url": "http://bangalore.craigslist.org/",
+        "crawlTimeOut": 200,
         "frequency": 9,
-        "failureThreshold": 25
-    } ,
-    {
-        "url": "www.google.com",
-        "crawlTimeOut": 15,
-        "frequency": 10,
-        "failureThreshold": 29
-        }  
+        "failureThreshold": 3
+    } 
 ]  

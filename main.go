@@ -7,9 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"io/ioutil"
-	// "sync"
-	// "net/http"
+	"net/http"
+	"sync"
 	// "net/http/httptest"
+	// "github.com/robfig/cron"
 	"time"
 )
 
@@ -21,6 +22,7 @@ const (
 
 var db *sql.DB
 var router *gin.Engine
+var wg sync.WaitGroup
 
 type healthCheckLog struct {
 	ID        uint
@@ -30,14 +32,14 @@ type healthCheckLog struct {
 }
 
 type urlRecord struct {
-	ID               uint
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	URL              string `json:"url"`
-	CrawlTimeOut     int    `json:"crawlTimeOut"`
-	Frequency        int    `json:"frequency"`
-	FailureThreshold int    `json:"failureThreshold"`
-	Status           int    `json:"status"`
+	ID               uint      `json:"-"`
+	URL              string    `json:"url"`
+	CrawlTimeOut     int       `json:"crawlTimeOut"`
+	Frequency        int       `json:"frequency"`
+	FailureThreshold int       `json:"failureThreshold"`
+	Status           int       `json:"status"`
+	CreatedAt        time.Time `json:"-"`
+	UpdatedAt        time.Time `json:"-"`
 }
 
 type transformedURLRecord struct {
@@ -63,10 +65,10 @@ func dbInit() {
 	stmt, err := db.Prepare(`CREATE Table IF NOT EXISTS urlRecords(
 		id int UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
 		url varchar(255) UNIQUE NOT NULL,
-		crawlTimeOut int UNIQUE NOT NULL,
-		frequency int UNIQUE NOT NULL,
-		failureThreshold int UNIQUE NOT NULL,
-		status int DEFAULT 500,
+		crawlTimeOut int NOT NULL,
+		frequency int NOT NULL,
+		failureThreshold int NOT NULL,
+		status int DEFAULT 503,
 		created_at DATETIME,
 		updated_at DATETIME
 		);`)
@@ -82,11 +84,11 @@ func dbInit() {
 	}
 
 	stmt, err = db.Prepare(`CREATE Table IF NOT EXISTS healthCheckLogs(
-		ID int UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+		id int UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
 		url_id int UNSIGNED NOT NULL,
 		trial_number int,
 		response int,
-		create_at DATETIME,
+		created_at DATETIME,
 		FOREIGN KEY fk_url_record(url_id)
 		REFERENCES urlRecords(id)
 		);`)
@@ -127,7 +129,7 @@ func main() {
 		fmt.Println(err.Error())
 	}
 	for _, v := range data {
-		_, err := db.Exec(`REPLACE INTO urlRecords(
+		_, err := db.Exec(`INSERT IGNORE INTO urlRecords(
 			url ,
 			crawlTimeOut ,
 			frequency ,
@@ -158,7 +160,8 @@ func main() {
 
 	}
 
-	router.Run(":80")
+	router.Run()
+
 }
 
 type url struct {
@@ -199,16 +202,7 @@ type url struct {
 // }
 
 func checkHealth(c *gin.Context) {
-	var urlinfo transformedURLRecord
-	// var wg sync.WaitGroup
-	results, err := db.Query(`SELECT 
-							id,
-							url,
-							crawlTimeOut,
-							frequency ,
-							failureThreshold,
-							status
-							FROM urlRecords`)
+	results, err := db.Query(`SELECT * FROM urlRecords`)
 	if err != nil {
 		fmt.Println(err.Error())
 	} else {
@@ -217,8 +211,11 @@ func checkHealth(c *gin.Context) {
 	defer results.Close()
 
 	for results.Next() {
+		var urlinfo urlRecord
+
 		err = results.Scan(&urlinfo.ID, &urlinfo.URL, &urlinfo.CrawlTimeOut, &urlinfo.Frequency,
-			&urlinfo.FailureThreshold, &urlinfo.Status)
+			&urlinfo.FailureThreshold, &urlinfo.Status, &urlinfo.CreatedAt,
+			&urlinfo.UpdatedAt)
 		if err != nil {
 			fmt.Println("Error while scanning row")
 		} else {
@@ -229,15 +226,66 @@ func checkHealth(c *gin.Context) {
 			}
 			fmt.Printf("%s\n", urlinfoJSON)
 			fmt.Println(urlinfo)
-			// wg.Add(1)
-			// go
+			wg.Add(1)
+			go checkURLHealth(&urlinfo)
+			fmt.Println("go function called for ,", urlinfo.URL)
 		}
 	}
 	err = results.Err()
 	if err != nil {
 		fmt.Println("Error after ending iteration on result set")
 	}
+	wg.Wait()
 
 }
 
-// func checkURLHealth(urlinfo *)
+func checkURLHealth(urlinfo *urlRecord) {
+	timeout := time.Duration(time.Duration((*urlinfo).CrawlTimeOut) * time.Millisecond)
+	client := http.Client{
+		Timeout: timeout,
+	}
+	for trial := 1; trial <= (*urlinfo).FailureThreshold; trial++ {
+		_, err := client.Get((*urlinfo).URL)
+		if err != nil {
+			(*urlinfo).Status = http.StatusServiceUnavailable
+			_, err1 := db.Exec(`INSERT INTO healthCheckLogs(
+				url_id ,
+				trial_number,
+				response ,
+				created_at )
+				VALUES (?,?,?,?)
+				;`,
+				(*urlinfo).ID,
+				trial,
+				(*urlinfo).Status,
+				time.Now())
+			if err1 != nil {
+				fmt.Println("error : ", err.Error())
+			} else {
+				fmt.Println("inserted record successfully..")
+			}
+
+			time.Sleep(time.Duration((*urlinfo).Frequency) * time.Millisecond)
+		} else {
+			(*urlinfo).Status = http.StatusOK
+			_, err1 := db.Exec(`INSERT INTO healthCheckLogs(
+				url_id ,
+				trial_number,
+				response ,
+				created_at )
+				VALUES (?,?,?,?)
+				;`,
+				(*urlinfo).ID,
+				trial,
+				(*urlinfo).Status,
+				time.Now())
+			if err1 != nil {
+				fmt.Println(err.Error())
+			} else {
+				fmt.Println("inserted record successfully..")
+			}
+			break
+		}
+	}
+	wg.Done()
+}
