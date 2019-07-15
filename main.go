@@ -18,7 +18,7 @@ func main() {
 	service.DBInit()
 
 	sched := cron.New()
-	sched.AddFunc("*/2 * * * *", service.CheckHealth)
+	sched.AddFunc(service.REFRESHTIME, service.CheckHealth)
 	sched.Start()
 
 	// ------------- setting up routes using gin -------------------
@@ -27,7 +27,7 @@ func main() {
 	app := router.Group("api/healthcheck")
 	{
 		app.GET("/addToDB", service.AddToDB)
-
+		app.GET("/fetchLogs", service.FetchLogs)
 	}
 
 	router.Run()

@@ -5,14 +5,20 @@ import (
 	"time"
 )
 
+const (
+	// REFRESHTIME Refresh Time for cron scheduler
+	REFRESHTIME = "*/20 * * * *"
+)
+
 // Wg Wait group variable
 var Wg sync.WaitGroup
 
 type healthCheckLog struct {
-	ID        uint
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	URLID     uint
+	ID          uint      `json:"id"`
+	URLID       uint      `json:"url_id"`
+	TrialNumber int       `json:"trial_number"`
+	Response    int       `json:"response"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type urlRecord struct {

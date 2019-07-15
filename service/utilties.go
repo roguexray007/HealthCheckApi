@@ -178,3 +178,55 @@ func CheckURLHealth(urlinfo *urlRecord) {
 	}
 	Wg.Done()
 }
+
+// FetchLogs fethces Logs fron healthCheckLog table
+func FetchLogs(c *gin.Context) {
+	var healthLogs []healthCheckLog
+
+	results, err := db.Query(`SELECT * FROM healthCheckLogs`)
+	if err != nil {
+		fmt.Println(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":  err,
+			"status": http.StatusInternalServerError,
+		})
+		panic(err)
+	} else {
+		fmt.Println("health Check Logs fetched successfully")
+	}
+	defer results.Close()
+
+	for results.Next() {
+		var healthLogInfo healthCheckLog
+		err = results.Scan(&healthLogInfo.ID,
+			&healthLogInfo.URLID,
+			&healthLogInfo.TrialNumber,
+			&healthLogInfo.Response,
+			&healthLogInfo.CreatedAt)
+
+		if err != nil {
+			fmt.Println("Error while scanning row")
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":  err,
+				"status": http.StatusInternalServerError,
+			})
+			panic(err)
+		} else {
+			fmt.Println("result fetched successfully")
+			healthLogs = append(healthLogs, healthLogInfo)
+		}
+	}
+	err = results.Err()
+	if err != nil {
+		fmt.Println("Error after ending iteration on result set")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":  err,
+			"status": http.StatusInternalServerError,
+		})
+		panic(err)
+	} else {
+
+		c.JSON(http.StatusOK, healthLogs)
+	}
+
+}
