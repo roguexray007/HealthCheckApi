@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"sync"
 	// "net/http/httptest"
-	// "github.com/robfig/cron"
+	"github.com/robfig/cron"
 	"time"
 )
 
@@ -107,56 +107,18 @@ func dbInit() {
 
 func main() {
 	//--------------------- database initialisation ----------------
-	var data []urlRecord
 	dbInit()
 
-	//--------------------- unmarshalling json file ----------------
-
-	file, err := ioutil.ReadFile("data.json")
-	if err != nil {
-		panic("failed to read file")
-	}
-	// fmt.Println(string(file))
-	err = json.Unmarshal([]byte(file), &data)
-	if err != nil {
-		panic("failed to unmarshall file")
-	}
-	// fmt.Printf("%#v", data)
-
-	//----------------- Adding unmarshall data in database ---------
-
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	for _, v := range data {
-		_, err := db.Exec(`INSERT IGNORE INTO urlRecords(
-			url ,
-			crawlTimeOut ,
-			frequency ,
-			failureThreshold,
-			created_at,
-			updated_at)
-			VALUES (?,?,?,?,?,?)
-			;`,
-			v.URL,
-			v.CrawlTimeOut,
-			v.Frequency,
-			v.FailureThreshold,
-			time.Now(),
-			time.Now())
-		if err != nil {
-			fmt.Println(err.Error())
-		} else {
-			fmt.Println("inserted record successfully..")
-		}
-	}
+	sched := cron.New()
+	sched.AddFunc("*/1 * * * *", checkHealth)
+	sched.Start()
 
 	// ------------- setting up routes using gin -------------------
 	router = gin.Default()
 
 	app := router.Group("api/healthcheck")
 	{
-		app.GET("/check", checkHealth)
+		app.GET("/addToDB", addToDB)
 
 	}
 
@@ -201,7 +163,53 @@ type url struct {
 
 // }
 
-func checkHealth(c *gin.Context) {
+func addToDB(c *gin.Context) {
+	var data []urlRecord
+
+	//--------------------- unmarshalling json file ----------------
+
+	file, err := ioutil.ReadFile("data.json")
+	if err != nil {
+		panic("failed to read file")
+	}
+	// fmt.Println(string(file))
+	err = json.Unmarshal([]byte(file), &data)
+	if err != nil {
+		panic("failed to unmarshall file")
+	}
+	// fmt.Printf("%#v", data)
+
+	//----------------- Adding unmarshall data in database ---------
+
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	for _, v := range data {
+		_, err := db.Exec(`INSERT IGNORE INTO urlRecords(
+			url ,
+			crawlTimeOut ,
+			frequency ,
+			failureThreshold,
+			created_at,
+			updated_at)
+			VALUES (?,?,?,?,?,?)
+			;`,
+			v.URL,
+			v.CrawlTimeOut,
+			v.Frequency,
+			v.FailureThreshold,
+			time.Now(),
+			time.Now())
+		if err != nil {
+			fmt.Println(err.Error())
+		} else {
+			fmt.Println("inserted record successfully..")
+		}
+	}
+
+}
+
+func checkHealth() {
 	results, err := db.Query(`SELECT * FROM urlRecords`)
 	if err != nil {
 		fmt.Println(err.Error())
