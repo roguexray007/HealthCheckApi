@@ -1,14 +1,26 @@
 [
     {
     "url": "http://www.google.com",
-    "crawlTimeOut": 150,
+    "crawlTimeOut": 90,
     "frequency": 10,
     "failureThreshold": 2
     }  ,
     {
         "url": "http://bangalore.craigslist.org/",
-        "crawlTimeOut": 200,
+        "crawlTimeOut": 210,
         "frequency": 9,
         "failureThreshold": 3
-    } 
+    },
+    {
+        "url": "http://www.youtube.com",
+        "crawlTimeOut": 150,
+        "frequency": 6,
+        "failureThreshold": 4
+    },
+    {
+        "url": "http://www.twitch.com",
+        "crawlTimeOut": 150,
+        "frequency": 6,
+        "failureThreshold": 4
+    }    
 ]  

@@ -110,7 +110,7 @@ func main() {
 	dbInit()
 
 	sched := cron.New()
-	sched.AddFunc("*/1 * * * *", checkHealth)
+	sched.AddFunc("*/20 * * * *", checkHealth)
 	sched.Start()
 
 	// ------------- setting up routes using gin -------------------
@@ -185,7 +185,15 @@ func addToDB(c *gin.Context) {
 		fmt.Println(err.Error())
 	}
 	for _, v := range data {
-		_, err := db.Exec(`INSERT IGNORE INTO urlRecords(
+		result := db.QueryRow(`SELECT * FROM urlRecords WHERE url = ? limit 1`, v.URL)
+
+		var urlinfo urlRecord
+		err = result.Scan(&urlinfo.ID, &urlinfo.URL, &urlinfo.CrawlTimeOut, &urlinfo.Frequency,
+			&urlinfo.FailureThreshold, &urlinfo.Status, &urlinfo.CreatedAt,
+			&urlinfo.UpdatedAt)
+		if err == sql.ErrNoRows {
+			fmt.Println("Error no rows were returned .Therefore inserting new record")
+			_, err = db.Exec(`INSERT INTO urlRecords(
 			url ,
 			crawlTimeOut ,
 			frequency ,
@@ -194,16 +202,38 @@ func addToDB(c *gin.Context) {
 			updated_at)
 			VALUES (?,?,?,?,?,?)
 			;`,
-			v.URL,
-			v.CrawlTimeOut,
-			v.Frequency,
-			v.FailureThreshold,
-			time.Now(),
-			time.Now())
-		if err != nil {
-			fmt.Println(err.Error())
-		} else {
-			fmt.Println("inserted record successfully..")
+				v.URL,
+				v.CrawlTimeOut,
+				v.Frequency,
+				v.FailureThreshold,
+				time.Now(),
+				time.Now())
+			if err != nil {
+				fmt.Println(err.Error())
+			} else {
+				fmt.Println("inserted record successfully..")
+			}
+		} else if err == nil {
+			_, err = db.Exec(`UPDATE urlRecords SET
+				url = ?,
+				crawlTimeOut = ?,
+				frequency =?,
+				failureThreshold = ?,
+				updated_at = ?
+			WHERE 
+				id = ?
+				;`,
+				v.URL,
+				v.CrawlTimeOut,
+				v.Frequency,
+				v.FailureThreshold,
+				time.Now(),
+				urlinfo.ID)
+			if err != nil {
+				fmt.Println(err.Error())
+			} else {
+				fmt.Println("updated record successfully..")
+			}
 		}
 	}
 
