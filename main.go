@@ -31,7 +31,7 @@ func main() {
 		//---------- add/update data in db --------------------------
 		app.GET("/addToDB", service.AddToDB)
 
-		//---------- fetches logs and displays in JSON format
+		//---------- fetches logs and displays in JSON format -------
 		app.GET("/fetchLogs", service.FetchLogs)
 	}
 
