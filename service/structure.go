@@ -1,7 +1,6 @@
 package service
 
 import (
-	"sync"
 	"time"
 )
 
@@ -13,7 +12,6 @@ const (
 )
 
 // Wg Wait group variable
-var Wg sync.WaitGroup
 
 // table for storing logs
 type healthCheckLog struct {

@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -89,6 +90,7 @@ func AddToDB(c *gin.Context) {
 
 // CheckHealth fetches records from db and calls CheckURLHealth for each record. CheckHealth function is a cron job
 func CheckHealth() {
+	var Wg sync.WaitGroup
 	results, err := db.Query(`SELECT * FROM urlRecords`)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -115,7 +117,7 @@ func CheckHealth() {
 			fmt.Printf("%s\n", urlinfoJSON)
 			fmt.Println(urlinfo)
 			Wg.Add(1)
-			go CheckURLHealth(&urlinfo)
+			go CheckURLHealth(&urlinfo, &Wg)
 			fmt.Println("go function called for ,", urlinfo.URL)
 		}
 	}
@@ -130,7 +132,8 @@ func CheckHealth() {
 }
 
 // CheckURLHealth checks health status for each url
-func CheckURLHealth(urlinfo *urlRecord) {
+func CheckURLHealth(urlinfo *urlRecord, wg *sync.WaitGroup) {
+	defer wg.Done()
 	timeout := time.Duration(time.Duration((*urlinfo).CrawlTimeOut) * time.Millisecond)
 	client := http.Client{
 		Timeout: timeout,
@@ -181,7 +184,7 @@ func CheckURLHealth(urlinfo *urlRecord) {
 			break
 		}
 	}
-	Wg.Done()
+
 }
 
 // FetchLogs fethces Logs fron healthCheckLog table
