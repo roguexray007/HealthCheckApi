@@ -17,16 +17,21 @@ func main() {
 	//--------------------- database initialisation ----------------
 	service.DBInit()
 
+	//--------------------- Cron for scheduling health check -------
 	sched := cron.New()
 	sched.AddFunc(service.REFRESHTIME, service.CheckHealth)
 	sched.Start()
 
-	// ------------- setting up routes using gin -------------------
+	// ------------- setting up routes using gin --------------------
 	router = gin.Default()
 
+	//---------------------- API routes -----------------------------
 	app := router.Group("api/healthcheck")
 	{
+		//---------- add/update data in db --------------------------
 		app.GET("/addToDB", service.AddToDB)
+
+		//---------- fetches logs and displays in JSON format
 		app.GET("/fetchLogs", service.FetchLogs)
 	}
 

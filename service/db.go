@@ -23,6 +23,7 @@ func DBInit() {
 		fmt.Println("successfully connected")
 	}
 
+	// Creation of urlRecords table for storing url info
 	stmt, err := db.Prepare(`CREATE Table IF NOT EXISTS urlRecords(
 		id int UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
 		url varchar(255) UNIQUE NOT NULL,
@@ -43,6 +44,8 @@ func DBInit() {
 	} else {
 		fmt.Println("Table created successfully..")
 	}
+
+	// Creation of healthCheckLogs table for storing logs
 
 	stmt, err = db.Prepare(`CREATE Table IF NOT EXISTS healthCheckLogs(
 		id int UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,

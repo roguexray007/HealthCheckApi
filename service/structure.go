@@ -8,11 +8,14 @@ import (
 const (
 	// REFRESHTIME Refresh Time for cron scheduler
 	REFRESHTIME = "*/20 * * * *"
+	//JSONDATA input file path for reading json data conatining url info
+	JSONDATA = "data.json"
 )
 
 // Wg Wait group variable
 var Wg sync.WaitGroup
 
+// table for storing logs
 type healthCheckLog struct {
 	ID          uint      `json:"id"`
 	URLID       uint      `json:"url_id"`
@@ -21,6 +24,7 @@ type healthCheckLog struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+// table for storing url info
 type urlRecord struct {
 	ID               uint      `json:"-"`
 	URL              string    `json:"url"`

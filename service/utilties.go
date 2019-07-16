@@ -10,13 +10,13 @@ import (
 	"time"
 )
 
-//AddToDB add data to db
+// AddToDB add/update data in DB . Data is read from data.json file.
 func AddToDB(c *gin.Context) {
 	var data []urlRecord
 
 	//--------------------- unmarshalling json file ----------------
 
-	file, err := ioutil.ReadFile("data.json")
+	file, err := ioutil.ReadFile(JSONDATA)
 	if err != nil {
 		panic("failed to read file")
 	}
@@ -87,7 +87,7 @@ func AddToDB(c *gin.Context) {
 
 }
 
-// CheckHealth fetches records from db and calls CheckURLHealth for each record
+// CheckHealth fetches records from db and calls CheckURLHealth for each record. CheckHealth function is a cron job
 func CheckHealth() {
 	results, err := db.Query(`SELECT * FROM urlRecords`)
 	if err != nil {
@@ -97,6 +97,7 @@ func CheckHealth() {
 	}
 	defer results.Close()
 
+	//iterating over urlrecords recieved from db and calling go routine for each to check for their health status
 	for results.Next() {
 		var urlinfo urlRecord
 
@@ -122,6 +123,7 @@ func CheckHealth() {
 	if err != nil {
 		fmt.Println("Error after ending iteration on result set")
 	}
+	// waiting for all go routines to complete
 	Wg.Wait()
 	fmt.Printf("--------------------- HEALTH CHECK COMPLETED ---------------------------\n")
 
@@ -133,9 +135,11 @@ func CheckURLHealth(urlinfo *urlRecord) {
 	client := http.Client{
 		Timeout: timeout,
 	}
+	// number of trials for each url
 	for trial := 1; trial <= (*urlinfo).FailureThreshold; trial++ {
 		_, err := client.Get((*urlinfo).URL)
 		if err != nil {
+			// if the request failed due to some reason
 			(*urlinfo).Status = http.StatusServiceUnavailable
 			_, err1 := db.Exec(`INSERT INTO healthCheckLogs(
 				url_id ,
@@ -153,9 +157,10 @@ func CheckURLHealth(urlinfo *urlRecord) {
 			} else {
 				fmt.Println("inserted record successfully..")
 			}
-
+			// sleeping for some time and then moving on to next trial
 			time.Sleep(time.Duration((*urlinfo).Frequency) * time.Millisecond)
 		} else {
+			// if the request was a hit
 			(*urlinfo).Status = http.StatusOK
 			_, err1 := db.Exec(`INSERT INTO healthCheckLogs(
 				url_id ,
@@ -181,8 +186,9 @@ func CheckURLHealth(urlinfo *urlRecord) {
 
 // FetchLogs fethces Logs fron healthCheckLog table
 func FetchLogs(c *gin.Context) {
+	// array for storing all records from healthCheckLog table
 	var healthLogs []healthCheckLog
-
+	// fetching all records from healthCheckLog table
 	results, err := db.Query(`SELECT * FROM healthCheckLogs`)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -196,6 +202,7 @@ func FetchLogs(c *gin.Context) {
 	}
 	defer results.Close()
 
+	// iterating over result set fetched and storing record in slice healthLogs
 	for results.Next() {
 		var healthLogInfo healthCheckLog
 		err = results.Scan(&healthLogInfo.ID,
@@ -225,7 +232,7 @@ func FetchLogs(c *gin.Context) {
 		})
 		panic(err)
 	} else {
-
+		// if everything went correctly result will be returned in JSON format with status code 200
 		c.JSON(http.StatusOK, healthLogs)
 	}
 
