@@ -11,7 +11,7 @@ const (
 	JSONDATA = "data.json"
 )
 
-// Wg Wait group variable
+
 
 // table for storing logs
 type healthCheckLog struct {
